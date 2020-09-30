@@ -13,7 +13,7 @@ circle(screen, (0,0,0), (150,150), 15)
 circle(screen, (0,0,0), (250,150), 15)
 line(screen, (0, 0, 0), (210,150), (300,100), 10)
 line(screen, (0, 0, 0), (190,150), (100,100), 10)
-rect(screen, (0, 0, 0), (150, 220, -100, -30))
+rect(screen, (0, 0, 0), (150, 220, 100, 30))
 
 pygame.display.update()
 clock = pygame.time.Clock()
