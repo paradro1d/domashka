@@ -15,9 +15,10 @@ buttons = config["buttons"]
 colors = config['colors']
 dt = 1 / FPS
 pygame.display.set_caption("ШАРЫ С БРС")
+kof = 100000
 
 
-class ball(object):
+class ball:
     '''
     Круг, имеющий координаты x, y, скорости speed_x, speed_y, радиус r,
     цвет color, время жизни time. Отображается на поверхности surface.
@@ -100,6 +101,27 @@ class ball(object):
             self.die(time)
             score = score + up
         return score
+
+    def check_collision(self, ball1):
+        '''
+        Функция проверяет шар для которого вызывается функция и
+        ball1 на предмет взаимодействия.
+        '''
+        if not((self.x == ball1.x) and (self.y == ball1.y)):
+            return ((self.x - ball1.x) ** 2 + (self.y - ball1.y) ** 2 <= (
+                self.r + ball1.r + 10) ** 2)
+
+    def collide(self, ball1):
+        '''
+        Функция отражает шар от шара ball1.
+        '''
+        dx = self.x - ball1.x
+        dy = self.y - ball1.y
+        k = dy / dx
+        self.speed_x = self.speed_x + kof / (
+            dx ** 2 + dy ** 2) * abs(dx) / dx / ((1 + k ** 2) ** (0.5))
+        self.speed_y = self.speed_y + kof / (dx ** 2 + dy ** 2) * abs(
+            dy) / dy / ((1 + k ** 2) ** (0.5)) * abs(k)
 
 
 class superball(ball):
@@ -279,6 +301,10 @@ while not finished:
             if b2.check():
                 save(name, score)
                 finished = True
+    for i in balls:
+        for j in balls:
+            if i.check_collision(j):
+                i.collide(j)
     for i in balls:
         i.step(t)
     t = t + dt
