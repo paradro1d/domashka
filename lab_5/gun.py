@@ -8,7 +8,7 @@ pygame.init()
 # Размеры окна
 screen = pygame.display.set_mode((800, 600))
 # Количество шаров
-n = 20
+n = 5
 myfont = pygame.font.SysFont('Comic Sans MS', 20)
 bullet = 0
 score = 0
@@ -20,6 +20,10 @@ FPS = 30
 dt = 1/FPS
 # Положение пушки
 gun_pos = (40, 450)
+# Цвет кнопок
+butt_color = (255, 0, 0)
+name = ''
+alphabet = 'qwertyuiopasdfghjklzxcvbnm1234567890'
 
 
 class ball():
@@ -93,6 +97,50 @@ class ball():
         """
         return ((self.x - obj.x) ** 2 + (self.y - obj.y) ** 2 <= (
             self.r + obj.r) ** 2)
+
+
+class button(object):
+    '''
+    Кнопка на поверности surface цвета color, являющаяся
+    прямоугольником rect c текстом text.
+    '''
+
+    def __init__(self, surface, color, rectan, text):
+        '''
+        Объявление объекта класса кнопки. Surface - поверхность,
+        на которой она отображается. color - её цвет. rectan -
+        прямоугольник, в который она вписана.
+        text - текст на кнопке.
+        '''
+        self.surface = surface
+        self.color = color
+        self.rect = rectan
+        self.text = text
+
+    def check(self):
+        '''
+        Проверяет положение курсора по отношению к кнопке.
+        Если она внутри, то возвращает True. Иначе - False.
+        '''
+        x, y = pygame.mouse.get_pos()
+        x0, y0, dx, dy = self.rect
+        return ((x > x0) and (x < x0 + dx) and (y > y0) and (y < y0 + dy))
+
+    def draw(self):
+        '''
+        Функция отрисовывает кнопку
+        '''
+        rect(self.surface, self.color, self.rect)
+        if self.check():
+            rect(self.surface, (0, 0, 255), self.rect)
+        textsurface = myfont.render(self.text, False, black)
+        surf = pygame.Surface(textsurface.get_size(), pygame.SRCALPHA)
+        surfscaled = pygame.Surface(
+            (self.rect[2], self.rect[3]), pygame.SRCALPHA)
+        surf.blit(textsurface, (0, 0))
+        pygame.transform.smoothscale(
+            surf, (self.rect[2], self.rect[3]), surfscaled)
+        self.surface.blit(surfscaled, (self.rect[0], self.rect[1]))
 
 
 class gun():
@@ -186,36 +234,63 @@ class target(ball):
         return score
 
 
-pygame.display.update()
 clock = pygame.time.Clock()
-score = 0
-bullets = 0
+
+
+def save(name, score):
+    '''
+    Функция сохраняет результат игрока. name - имя игрока.
+    score - его текущий счёт.
+    '''
+    table = open('table.txt', 'a')
+    print(name + ': ' + str(score), file=table)
+    table.close()
 
 
 def game():
-    global FPS, score, dt, bullets
+    '''
+    Функция прорисовывает окно игры
+    '''
+    global FPS, score, dt, bullets, best_res
     g1 = gun(screen, *gun_pos)
     finished = False
     targets = [target(screen) for i in range(n)]
     balls = []
     bullets = 0
+    save_butt = button(screen, butt_color, (10, 200, 100, 30), 'Сохранить')
+    exit_butt = button(screen, butt_color, (10, 250, 100, 30), 'Выйти')
     while not finished:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 finished = True
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                g1.fire_start()
+                if save_butt.check():
+                    if best_res != 0:
+                        save(name, best_res)
+                    finished = True
+                elif exit_butt.check():
+                    finished = True
+                else:
+                    g1.fire_start()
             elif event.type == pygame.MOUSEBUTTONUP:
-                bullets = g1.fire_end(balls, bullets)
+                if not save_butt.check():
+                    bullets = g1.fire_end(balls, bullets)
         g1.draw()
-        textsurface = myfont.render(str(score), False, (0, 0, 0))
+        textsurface = myfont.render(
+            name + ': ' + str(bullets), False, (0, 0, 0))
         screen.blit(textsurface, (0, 0))
+        textsurface1 = myfont.render(
+            'Лучший результат: ' + str(best_res), False, (0, 0, 0))
+        screen.blit(textsurface1, (0, 30))
+        save_butt.draw()
+        exit_butt.draw()
         for i in balls:
             i.step(0.6)
             for j in targets:
                 if i.hittest(j):
                     score = j.hit(1, score)
                     targets.remove(j)
+                    balls.remove(i)
             if (i.vx == 0) and (i.vy == 0):
                 i.time += dt
                 if i.time >= i.lifetime:
@@ -229,10 +304,14 @@ def game():
             textsurface = myfont.render(
                 'Вы уничтожили цели за ' + str(
                     bullets) + ' выстрелов...', False, (0, 0, 0))
+            if bullets < best_res + 1000*(best_res == 0):
+                best_res = bullets
             screen.blit(textsurface, (100, 300))
             if balls == []:
                 pygame.event.set_allowed([
                     pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
+                pygame.display.update()
+                clock.tick(0.5)
                 finished = True
                 game()
         if g1.on:
@@ -243,5 +322,116 @@ def game():
         screen.fill((255, 255, 255))
 
 
-game()
+def tableoutput(surface):
+    '''
+    Функция выводит на экран таблицу рекордов
+    (первые 12 значений). Surface - поверхность вывода.
+    '''
+    Exit = button(surface, butt_color, (50, 50, 80, 30), 'Вернуться')
+    finished_t = False
+    table = open('table.txt', 'r')
+    inp = table.readlines()
+    records = []
+    for i in inp:
+        i = i.split()
+        i[1] = int(i[1])
+        records.append([i[0], i[1]])
+
+    def scorekey(arr):
+        return arr[1]
+
+    records = sorted(records, key=scorekey)
+    table.close()
+    global FPS
+    while not finished_t:
+        for event in pygame.event.get():
+            if (event.type == pygame.QUIT):
+                finished_t = True
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if Exit.check():
+                    finished_t = True
+        a = 0
+        for i in records:
+            a = a + 1
+            textsurface = myfont.render(
+                str(a) + '. ' + i[0] + ' ' + str(i[1]), False, (0, 0, 0))
+            surface.blit(textsurface, (400, 10 + 40 * a))
+        Exit.draw()
+        pygame.display.update()
+        clock.tick(FPS)
+        surface.fill((255, 255, 255))
+
+
+def main_window():
+    '''
+    Фуекция прорисовывет главное окно
+    '''
+    finished = False
+    butts = []
+    butts.append(button(
+        screen, butt_color, (350, 100, 100, 30), 'Начать игру'))
+    butts.append(button(
+        screen, butt_color, (350, 200, 100, 30), 'Таблица рекордов'))
+    butts.append(button(
+        screen, butt_color, (350, 300, 100, 30), 'Выйти'))
+    while not finished:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if butts[0].check():
+                    name_input()
+                    game()
+                if butts[1].check():
+                    tableoutput(screen)
+                if butts[2].check():
+                    finished = True
+        for b in butts:
+            b.draw()
+        pygame.display.update()
+        clock.tick(FPS)
+        screen.fill((255, 255, 255))
+
+
+def key_check(string, name):
+    '''
+    Обработка нажатия клавиши при вводе имени.
+    Возвращает имя после нажатия клавиши.
+    '''
+    if string in alphabet:
+        name = name + string
+    elif string == 'backspace':
+        name = name[0:len(name)-1]
+    return name
+
+
+def name_input():
+    '''
+    Фуекция прорисовывает окно ввода имени.
+    '''
+    global name, best_res
+    best_res = 0
+    b = button(screen, butt_color, (350, 100, 100, 30), 'Начать игру')
+    name = ''
+    finished = False
+    while not finished:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished = True
+            elif event.type == pygame.KEYDOWN:
+                name = key_check(pygame.key.name(event.key), name)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if b.check():
+                    finished = True
+        b.draw()
+        textsurface = myfont.render(name, False, (0, 0, 0))
+        screen.blit(textsurface, (350, 200))
+        textsurface1 = myfont.render('Введите имя:', False, (0, 0, 0))
+        screen.blit(textsurface1, (350, 150))
+        pygame.display.update()
+        clock.tick(FPS)
+        screen.fill((255, 255, 255))
+
+
+main_window()
 pygame.quit()
